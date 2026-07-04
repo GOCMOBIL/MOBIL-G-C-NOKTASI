@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ankara Mobil Göç Noktaları</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{
+    --bg:#101614;
+    --panel:#161e1b;
+    --panel-2:#1c2622;
+    --border:#2a3733;
+    --text:#eef3f0;
+    --text-2:#9fb0aa;
+    --text-3:#6b7a75;
+    --accent:#3fae87;
+    --accent-dim:#245b47;
+    --warn:#e0a53c;
+    --danger:#d9694f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  header{
+    padding:18px 16px 14px;
+    border-bottom:1px solid var(--border);
+    background:var(--panel);
+  }
+  header h1{
+    font-size:17px;
+    font-weight:600;
+    margin:0 0 4px;
+    letter-spacing:.2px;
+  }
+  header p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--text-2);
+  }
+  #status-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 16px;
+    font-size:13px;
+    background:var(--panel-2);
+    border-bottom:1px solid var(--border);
+    color:var(--text-2);
+  }
+  #status-bar .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--text-3);
+    flex-shrink:0;
+  }
+  #status-bar.locating .dot{ background:var(--warn); animation:pulse 1.2s infinite; }
+  #status-bar.ok .dot{ background:var(--accent); }
+  #status-bar.error .dot{ background:var(--danger); }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  #retry-btn{
+    margin-left:auto;
+    background:none;
+    border:1px solid var(--border);
+    color:var(--text);
+    font-size:12px;
+    padding:5px 10px;
+    border-radius:6px;
+    flex-shrink:0;
+  }
+  #manual-box{
+    display:none;
+    margin:12px 16px 0;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+  }
+  #manual-box p{
+    margin:0 0 8px;
+    font-size:12.5px;
+    color:var(--text-2);
+  }
+  #manual-box .row{
+    display:flex;
+    gap:8px;
+  }
+  #manual-box input{
+    flex:1;
+    min-width:0;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:6px;
+    padding:8px 10px;
+    font-size:13px;
+  }
+  #manual-box button{
+    background:var(--accent-dim);
+    border:1px solid var(--accent);
+    color:var(--accent);
+    border-radius:6px;
+    padding:8px 14px;
+    font-size:13px;
+    white-space:nowrap;
+  }
+  #manual-box .hint{
+    font-size:11px;
+    color:var(--text-3);
+    margin-top:6px;
+  }
+  #map{
+    width:100%;
+    height:42vh;
+    min-height:260px;
+  }
+  #nearest-card{
+    margin:14px 16px 0;
+    background:var(--panel);
+    border:1px solid var(--accent-dim);
+    border-radius:12px;
+    padding:14px 16px;
+  }
+  #nearest-card .label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+    color:var(--accent);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  #nearest-card .name{
+    font-size:16px;
+    font-weight:600;
+    margin-bottom:4px;
+  }
+  #nearest-card .meta{
+    font-size:13px;
+    color:var(--text-2);
+    display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  #nearest-card a.dirlink{
+    display:inline-block;
+    margin-top:10px;
+    font-size:13px;
+    color:var(--accent);
+    text-decoration:none;
+    border:1px solid var(--accent-dim);
+    padding:7px 12px;
+    border-radius:8px;
+  }
+  #list{
+    padding:16px;
+  }
+  #list h2{
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-2);
+    margin:0 0 10px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+  .item{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .item:last-child{ border-bottom:none; }
+  .item .rank{
+    width:26px;height:26px;
+    border-radius:50%;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-size:12px;font-weight:600;
+    color:var(--text-2);
+    flex-shrink:0;
+  }
+  .item.first .rank{
+    background:var(--accent-dim);
+    border-color:var(--accent);
+    color:var(--accent);
+  }
+  .item .info{ flex:1; min-width:0; }
+  .item .info .n{
+    font-size:14.5px;
+    font-weight:500;
+    margin-bottom:3px;
+  }
+  .item .info .sub{
+    font-size:12px;
+    color:var(--text-3);
+    display:flex;
+    gap:8px;
+    align-items:center;
+  }
+  .badge{
+    font-size:10.5px;
+    padding:2px 7px;
+    border-radius:5px;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .badge.h24{ background:rgba(63,174,135,.15); color:var(--accent); }
+  .badge.limited{ background:rgba(224,165,60,.15); color:var(--warn); }
+  .dist{
+    font-size:14px;
+    font-weight:600;
+    color:var(--text);
+    white-space:nowrap;
+  }
+  footer{
+    padding:14px 16px 28px;
+    font-size:11px;
+    color:var(--text-3);
+    text-align:center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Mobil göç noktası — en yakın nokta bulucu</h1>
+  <p>Ankara ili genelindeki mobil göç noktaları arasından size en yakın olanı bulur.</p>
+</header>
+
+<div id="status-bar" class="locating">
+  <div class="dot"></div>
+  <span id="status-text">Konumunuz alınıyor...</span>
+  <button id="retry-btn" onclick="requestLocation()" style="display:none;">Tekrar dene</button>
+</div>
+
+<div id="manual-box">
+  <p>Konum alınamıyorsa haritadan konumunuza yakın bir yere basın veya koordinat girin.</p>
+  <div class="row">
+    <input type="text" id="manual-lat" placeholder="Enlem (örn: 39.9208)">
+    <input type="text" id="manual-lng" placeholder="Boylam (örn: 32.8541)">
+    <button onclick="submitManual()">Bul</button>
+  </div>
+  <div class="hint">İpucu: Google Maps'te bulunduğunuz konuma basılı tutup çıkan koordinatları kopyalayabilirsiniz. Ya da aşağıdaki haritaya doğrudan basın.</div>
+</div>
+
+<div id="map"></div>
+
+<div id="nearest-card" style="display:none;">
+  <div class="label">En yakın nokta</div>
+  <div class="name" id="nearest-name">-</div>
+  <div class="meta">
+    <span id="nearest-dist">-</span>
+    <span id="nearest-hours">-</span>
+  </div>
+  <a class="dirlink" id="nearest-dirlink" href="#" target="_blank" rel="noopener">Yol tarifi al ↗</a>
+</div>
+
+<div id="list">
+  <h2>Tüm noktalar (mesafeye göre sıralı)</h2>
+  <div id="list-items"></div>
+</div>
+
+<footer>Konumunuz cihazınızdan alınır, hiçbir sunucuya kaydedilmez.</footer>
+
+<script>
+const POINTS = [
+  { name: "Kızılay Güvenpark Mobil Göç Noktası", lat: 39.918388, lng: 32.853909, hours: "24saat" },
+  { name: "Etimesgut Aile İçi Şiddetle Mücadele Büro Amirliği Yanı Mobil Göç Noktası", lat: 39.947884, lng: 32.668121, hours: "09-21" },
+  { name: "AŞTİ Peron 152 Mobil Göç Noktası", lat: 39.919334, lng: 32.811699, hours: "24saat" },
+  { name: "Keçiören Kuyubaşı Metro İstasyonu Mobil Göç Noktası", lat: 39.990726, lng: 32.875290, hours: "09-21" },
+  { name: "Ankara İl Emniyet Müdürlüğü Mobil Göç Noktası", lat: 39.948608, lng: 32.831694, hours: "24saat" },
+  { name: "Altındağ Solmaz Kılıçtepe PMA Yanı Mobil Göç Noktası", lat: 39.936664, lng: 32.853931, hours: "09-21" },
+  { name: "Mamak Çalışkanlar Jandarma Uygulama Noktası Mobil Göç Noktası", lat: 39.927249, lng: 33.005200, hours: "09-21" }
+];
+
+function haversine(lat1, lng1, lat2, lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  const c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function isOpenNow(hours){
+  if (hours === "24saat") return true;
+  const now = new Date();
+  const h = now.getHours() + now.getMinutes()/60;
+  return h >= 9 && h < 21;
+}
+
+const map = L.map('map', { zoomControl: true }).setView([39.935, 32.86], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap',
+  maxZoom: 19
+}).addTo(map);
+
+let userMarker = null;
+let userCircle = null;
+let routeLine = null;
+const pointMarkers = [];
+
+const pointIcon = (open) => L.divIcon({
+  html: `<div style="width:16px;height:16px;border-radius:50%;background:${open ? '#3fae87' : '#e0a53c'};border:2px solid #101614;box-shadow:0 0 0 1px ${open ? '#3fae87' : '#e0a53c'};"></div>`,
+  className: '',
+  iconSize: [16,16],
+  iconAnchor: [8,8]
+});
+
+POINTS.forEach(p => {
+  const open = isOpenNow(p.hours);
+  const m = L.marker([p.lat, p.lng], { icon: pointIcon(open) }).addTo(map);
+  m.bindPopup(`<b>${p.name}</b><br>${p.hours === '24saat' ? '24 saat açık' : 'Çalışma saatleri: 09:00 - 21:00'}`);
+  pointMarkers.push(m);
+});
+
+function statusBar(mode, text){
+  const bar = document.getElementById('status-bar');
+  bar.className = mode;
+  document.getElementById('status-text').textContent = text;
+  document.getElementById('retry-btn').style.display = mode === 'error' ? 'inline-block' : 'none';
+}
+
+function formatDist(km){
+  return km < 1 ? `${Math.round(km*1000)} m` : `${km.toFixed(1)} km`;
+}
+
+function render(userLat, userLng){
+  const withDist = POINTS.map(p => ({
+    ...p,
+    dist: haversine(userLat, userLng, p.lat, p.lng),
+    open: isOpenNow(p.hours)
+  })).sort((a,b) => a.dist - b.dist);
+
+  const nearest = withDist[0];
+  document.getElementById('nearest-card').style.display = 'block';
+  document.getElementById('nearest-name').textContent = nearest.name;
+  document.getElementById('nearest-dist').textContent = formatDist(nearest.dist);
+  document.getElementById('nearest-hours').innerHTML = nearest.hours === '24saat'
+    ? '<span class="badge h24">24 saat</span>'
+    : `<span class="badge limited">09:00-21:00 ${nearest.open ? '· şu an açık' : '· şu an kapalı'}</span>`;
+  document.getElementById('nearest-dirlink').href =
+    `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${nearest.lat},${nearest.lng}`;
+
+  const listEl = document.getElementById('list-items');
+  listEl.innerHTML = '';
+  withDist.forEach((p, i) => {
+    const div = document.createElement('div');
+    div.className = 'item' + (i === 0 ? ' first' : '');
+    div.innerHTML = `
+      <div class="rank">${i+1}</div>
+      <div class="info">
+        <div class="n">${p.name}</div>
+        <div class="sub">
+          ${p.hours === '24saat' ? '<span class="badge h24">24 saat</span>' : `<span class="badge limited">09-21${p.open ? ' · açık' : ' · kapalı'}</span>`}
+        </div>
+      </div>
+      <div class="dist">${formatDist(p.dist)}</div>
+    `;
+    listEl.appendChild(div);
+  });
+
+  if (userMarker) map.removeLayer(userMarker);
+  if (userCircle) map.removeLayer(userCircle);
+  if (routeLine) map.removeLayer(routeLine);
+
+  userMarker = L.marker([userLat, userLng], {
+    icon: L.divIcon({
+      html: `<div style="width:14px;height:14px;border-radius:50%;background:#378ADD;border:3px solid #101614;"></div>`,
+      className: '', iconSize:[14,14], iconAnchor:[7,7]
+    })
+  }).addTo(map).bindPopup('Konumunuz');
+
+  routeLine = L.polyline([[userLat, userLng],[nearest.lat, nearest.lng]], {
+    color: '#3fae87', weight: 2, dashArray: '6 6'
+  }).addTo(map);
+
+  const bounds = L.latLngBounds([[userLat, userLng],[nearest.lat, nearest.lng]]);
+  map.fitBounds(bounds, { padding: [50,50] });
+}
+
+function showManualBox(){
+  document.getElementById('manual-box').style.display = 'block';
+}
+
+function submitManual(){
+  const lat = parseFloat(document.getElementById('manual-lat').value.replace(',', '.'));
+  const lng = parseFloat(document.getElementById('manual-lng').value.replace(',', '.'));
+  if (isNaN(lat) || isNaN(lng)){
+    statusBar('error', 'Geçerli bir enlem/boylam girin.');
+    return;
+  }
+  statusBar('ok', 'Konum manuel olarak girildi.');
+  render(lat, lng);
+}
+
+map.on('click', (e) => {
+  statusBar('ok', 'Konum haritadan seçildi.');
+  document.getElementById('manual-lat').value = e.latlng.lat.toFixed(6);
+  document.getElementById('manual-lng').value = e.latlng.lng.toFixed(6);
+  render(e.latlng.lat, e.latlng.lng);
+});
+
+let slowTimer = null;
+
+function requestLocation(){
+  statusBar('locating', 'Konumunuz alınıyor...');
+  document.getElementById('manual-box').style.display = 'none';
+
+  if (!window.isSecureContext){
+    statusBar('error', 'Bu sayfa güvenli olmayan bir bağlamda açıldı, bu yüzden konum servisi çalışmıyor. Lütfen dosyayı WhatsApp içinden değil, Safari veya Chrome üzerinden açın.');
+    showManualBox();
+    return;
+  }
+
+  if (!navigator.geolocation){
+    statusBar('error', 'Tarayıcınız konum servisini desteklemiyor.');
+    showManualBox();
+    return;
+  }
+
+  slowTimer = setTimeout(() => {
+    statusBar('locating', 'Konum alınması normalden uzun sürüyor. Bekleyebilir ya da haritadan konumunuza basarak devam edebilirsiniz.');
+    showManualBox();
+  }, 6000);
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      clearTimeout(slowTimer);
+      statusBar('ok', 'Konumunuz bulundu.');
+      render(pos.coords.latitude, pos.coords.longitude);
+    },
+    (err) => {
+      clearTimeout(slowTimer);
+      let msg = 'Konum alınamadı.';
+      if (err.code === 1) msg = 'Konum izni reddedildi. Tarayıcı ayarlarından izin verin ya da haritadan konumunuza basın.';
+      else if (err.code === 2) msg = 'Konum belirlenemedi. Haritadan konumunuza basarak devam edebilirsiniz.';
+      else if (err.code === 3) msg = 'Konum alma zaman aşımına uğradı. Haritadan konumunuza basarak devam edebilirsiniz.';
+      statusBar('error', msg);
+      showManualBox();
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+requestLocation();
+</script>
+</body>
+</html>
